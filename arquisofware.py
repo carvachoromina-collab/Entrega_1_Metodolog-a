@@ -201,6 +201,16 @@ class Incidencia:
             raise ValueError("La incidencia necesita una resolución.")
         self.resolucion = detalle
         self.estado = "Resuelta"
+    
+
+    def pasar_a_revision(self):
+        self.estado = "En análisis"
+
+    def cerrar(self, detalle):
+        if not detalle.strip():
+            raise ValueError("La incidencia necesita una resolución.")
+        self.resolucion = detalle
+        self.estado = "Resuelta"
 
 
 class ReclamoPostEntrega(Incidencia):
@@ -220,7 +230,6 @@ class Soporte:
         if pedido.estado != "Entregado":
             raise ValueError("Solo se aceptan reclamos sobre pedidos entregados.")
         return FabricaIncidencias.crear("reclamo", pedido, motivo)
-
 
 def ejecutar():
     print("\n" + "=" * 56)
@@ -281,18 +290,19 @@ def ejecutar():
         pedido,
         "Cliente informa que recibió el paquete roto."
     )
-    print(f"-> Incidencia registrada por paquete roto. Estado: {caso.estado}")
+    print(f"-> Incidencia registrada. Motivo: {caso.motivo}")
+    print(f"-> Estado inicial de la incidencia: {caso.estado}")
 
     caso.pasar_a_revision()
-    print(f"-> Incidencia enviada a revisión. Estado: {caso.estado}")
+    print(f"-> La incidencia pasó a revisión. Estado: {caso.estado}")
 
-    caso.cerrar("Se otorgó un beneficio comercial al cliente por el inconveniente.")
-    print(f"-> Incidencia resuelta. Estado: {caso.estado}")
+    solucion = "Se recompensó al cliente con un beneficio comercial por el inconveniente."
+    caso.cerrar(solucion)
+    print(f"-> Resolución aplicada: {solucion}")
+    print(f"-> Estado final de la incidencia: {caso.estado}")
 
     print("\n" + "=" * 56)
     print("--- FIN DE LA SIMULACIÓN ---")
     print("=" * 56 + "\n")
 
 
-if __name__ == "__main__":
-    ejecutar()

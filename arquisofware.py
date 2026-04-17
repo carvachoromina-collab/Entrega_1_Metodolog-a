@@ -201,16 +201,6 @@ class Incidencia:
             raise ValueError("La incidencia necesita una resolución.")
         self.resolucion = detalle
         self.estado = "Resuelta"
-    
-
-    def pasar_a_revision(self):
-        self.estado = "En análisis"
-
-    def cerrar(self, detalle):
-        if not detalle.strip():
-            raise ValueError("La incidencia necesita una resolución.")
-        self.resolucion = detalle
-        self.estado = "Resuelta"
 
 
 class ReclamoPostEntrega(Incidencia):
@@ -230,6 +220,7 @@ class Soporte:
         if pedido.estado != "Entregado":
             raise ValueError("Solo se aceptan reclamos sobre pedidos entregados.")
         return FabricaIncidencias.crear("reclamo", pedido, motivo)
+
 
 def ejecutar():
     print("\n" + "=" * 56)
@@ -306,3 +297,5 @@ def ejecutar():
     print("=" * 56 + "\n")
 
 
+if __name__ == "__main__":
+    ejecutar()

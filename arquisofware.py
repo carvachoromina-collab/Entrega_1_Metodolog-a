@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 import uuid
 
+
 class Pedido:
     def __init__(self, origen, punto_origen, destino, destinatario, contacto,
                  canal, tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado):
@@ -47,15 +48,19 @@ class CreadorPedido(ABC):
 class CreadorMarketplace(CreadorPedido):
     def crear(self, origen, punto_origen, destino, destinatario, contacto,
               tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado):
-        return Pedido(origen, punto_origen, destino, destinatario, contacto,
-                      "Marketplace", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado)
+        return Pedido(
+            origen, punto_origen, destino, destinatario, contacto,
+            "Marketplace", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
+        )
 
 
 class CreadorSucursal(CreadorPedido):
     def crear(self, origen, punto_origen, destino, destinatario, contacto,
               tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado):
-        return Pedido(origen, punto_origen, destino, destinatario, contacto,
-                      "Sucursal", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado)
+        return Pedido(
+            origen, punto_origen, destino, destinatario, contacto,
+            "Sucursal", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
+        )
 
 
 class RegistroPedidos:
@@ -64,8 +69,10 @@ class RegistroPedidos:
 
     def ingresar(self, origen, punto_origen, destino, destinatario, contacto,
                  tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado):
-        return self.creador.crear(origen, punto_origen, destino, destinatario, contacto,
-                                  tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado)
+        return self.creador.crear(
+            origen, punto_origen, destino, destinatario, contacto,
+            tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
+        )
 
 
 class ReglaValidacion(ABC):
@@ -83,7 +90,7 @@ class ReglaOrigen(ReglaValidacion):
         return bool(pedido.origen.strip()) and bool(pedido.punto_origen.strip())
 
     def mensaje_error(self):
-        return "No se pudo validar el origen."
+        return "No fue posible validar el origen del pedido."
 
 
 class ReglaDestino(ReglaValidacion):
@@ -91,13 +98,15 @@ class ReglaDestino(ReglaValidacion):
         return bool(pedido.destino.strip()) and bool(pedido.destinatario.strip()) and bool(pedido.contacto.strip())
 
     def mensaje_error(self):
-        return "El destino o el contacto están incompletos."
+        return "Faltan datos de destino o contacto."
 
 
 class ReglaEntrega(ReglaValidacion):
     def es_valida(self, pedido):
-        tipos = ["Normal", "Express", "Programada"]
-        return pedido.tipo_entrega in tipos and (pedido.tipo_entrega != "Programada" or bool(pedido.ventana_tiempo))
+        tipos_validos = ["Normal", "Express", "Programada"]
+        return pedido.tipo_entrega in tipos_validos and (
+            pedido.tipo_entrega != "Programada" or bool(pedido.ventana_tiempo)
+        )
 
     def mensaje_error(self):
         return "La modalidad de entrega no es válida."
@@ -108,21 +117,28 @@ class ReglaLogistica(ReglaValidacion):
         return bool(pedido.tipo_carga.strip()) and pedido.peso_estimado > 0
 
     def mensaje_error(self):
-        return "La información logística es inválida."
+        return "La información logística no cumple las condiciones mínimas."
 
 
 class ValidadorPedido:
     def __init__(self):
-        self.reglas = [ReglaOrigen(), ReglaDestino(), ReglaEntrega(), ReglaLogistica()]
+        self.reglas = [
+            ReglaOrigen(),
+            ReglaDestino(),
+            ReglaEntrega(),
+            ReglaLogistica()
+        ]
 
     def validar(self, pedido):
         if pedido.estado != "Creado":
             return False, "El pedido no puede validarse desde su estado actual."
+
         for regla in self.reglas:
             if not regla.es_valida(pedido):
                 return False, regla.mensaje_error()
+
         pedido.validar()
-        return True, "El pedido fue validado correctamente."
+        return True, "Pedido validado con éxito."
 
 
 class Repartidor:
@@ -134,6 +150,9 @@ class Repartidor:
 
     def puede_tomar(self, pedido):
         return self.disponible and (self.carga_actual + pedido.peso_estimado) <= self.capacidad
+
+    def cargar(self, pedido):
+        self.carga_actual += pedido.peso_estimado
 
 
 class EstrategiaAsignacion(ABC):
@@ -155,18 +174,20 @@ class ServicioDespacho:
     def asignar(self, pedido, repartidores):
         if pedido.estado != "Validado":
             return False, "El pedido debe estar validado antes de asignarse."
+
         pedido.dejar_pendiente()
         elegido = self.estrategia.seleccionar(pedido, repartidores)
+
         if not elegido:
-            return False, "No hay capacidad disponible para este pedido."
-        elegido.carga_actual += pedido.peso_estimado
+            return False, "No se encontró capacidad disponible para este pedido."
+
+        elegido.cargar(pedido)
         pedido.asignar(elegido)
         return True, f"Pedido asignado a {elegido.codigo}."
 
 
 class Incidencia:
     def __init__(self, pedido, motivo):
-        self.id_caso = str(uuid.uuid4())[:8]
         self.pedido = pedido
         self.motivo = motivo
         self.estado = "Abierta"
@@ -177,7 +198,7 @@ class Incidencia:
 
     def cerrar(self, detalle):
         if not detalle.strip():
-            raise ValueError("La incidencia requiere una resolución.")
+            raise ValueError("La incidencia necesita una resolución.")
         self.resolucion = detalle
         self.estado = "Resuelta"
 
@@ -202,9 +223,12 @@ class Soporte:
 
 
 def ejecutar():
-    print("\n--- Simulación de operación logística ---\n")
+    print("\n" + "=" * 56)
+    print("--- FLUJO DE OPERACIÓN LOGÍSTICA ---")
+    print("=" * 56)
 
-    print("[CU1] Registro de pedido")
+    print("\n[CAPTURA] Registro y validación del pedido...")
+
     registro = RegistroPedidos(CreadorMarketplace())
     pedido = registro.ingresar(
         "Centro Logístico Quilpué",
@@ -217,41 +241,57 @@ def ejecutar():
         "Paquete frágil",
         4.2
     )
-    print(f"Pedido registrado desde {pedido.canal}. Estado: {pedido.estado}")
+    print(f"-> Pedido registrado correctamente. Estado: {pedido.estado}")
 
-    print("\n[CU2] Validación")
     validador = ValidadorPedido()
     ok, mensaje = validador.validar(pedido)
-    print("Resultado:", mensaje)
     if not ok:
+        print(f"-> Validación rechazada: {mensaje}")
         return
+    print(f"-> {mensaje} Estado: {pedido.estado}")
 
-    print("\n[CU3] Asignación")
-    flota = [Repartidor("VINA-01", 8.0), Repartidor("VINA-02", 12.0)]
-    print("Repartidores disponibles: VINA-01 y VINA-02")
+    print("\n[OPERACIÓN] Asignación y despacho...")
+
+    flota = [
+        Repartidor("VINA-01", 8.0),
+        Repartidor("VINA-02", 12.0)
+    ]
+    print(f"-> Repartidor {flota[0].codigo} disponible con capacidad {flota[0].capacidad} kg.")
+    print(f"-> Repartidor {flota[1].codigo} disponible con capacidad {flota[1].capacidad} kg.")
+
     despacho = ServicioDespacho(AsignacionMenorCarga())
     ok, mensaje = despacho.asignar(pedido, flota)
-    print("Resultado:", mensaje)
     if not ok:
+        print(f"-> No fue posible asignar el pedido: {mensaje}")
         return
-    pedido.salir_a_reparto()
-    print("Estado actual del pedido:", pedido.estado)
-    pedido.entregar()
-    print("Estado final del pedido:", pedido.estado)
 
-    print("\n[CU4] Incidencia")
+    print(f"-> {mensaje}")
+    print(f"-> Estado después de asignación: {pedido.estado}")
+
+    pedido.salir_a_reparto()
+    print(f"-> El pedido salió a reparto. Estado: {pedido.estado}")
+
+    pedido.entregar()
+    print(f"-> Entrega confirmada. Estado final: {pedido.estado}")
+
+    print("\n[SOPORTE] Gestión de incidencia posterior a la entrega...")
+
     soporte = Soporte()
     caso = soporte.registrar_reclamo(
         pedido,
-        "Cliente reporta paquete roto al momento de la entrega."
+        "Cliente informa que recibió el paquete roto."
     )
-    print("Incidencia registrada. Estado:", caso.estado)
-    caso.pasar_a_revision()
-    print("Incidencia en revisión. Estado:", caso.estado)
-    caso.cerrar("Se aprueba beneficio comercial para compensar el problema.")
-    print("Incidencia resuelta. Estado:", caso.estado)
+    print(f"-> Incidencia registrada por paquete roto. Estado: {caso.estado}")
 
-    print("\n--- Fin de la simulación ---\n")
+    caso.pasar_a_revision()
+    print(f"-> Incidencia enviada a revisión. Estado: {caso.estado}")
+
+    caso.cerrar("Se otorgó un beneficio comercial al cliente por el inconveniente.")
+    print(f"-> Incidencia resuelta. Estado: {caso.estado}")
+
+    print("\n" + "=" * 56)
+    print("--- FIN DE LA SIMULACIÓN ---")
+    print("=" * 56 + "\n")
 
 
 if __name__ == "__main__":

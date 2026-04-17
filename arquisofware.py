@@ -3,20 +3,10 @@ from datetime import datetime
 import uuid
 
 
-# Pedido representa la unidad principal del flujo logístico.
 class Pedido:
     def __init__(
-        self,
-        origen,
-        punto_origen,
-        destino,
-        destinatario,
-        contacto,
-        canal_origen,
-        tipo_entrega,
-        ventana_tiempo,
-        tipo_carga,
-        peso_estimado,
+        self, origen, punto_origen, destino, destinatario, contacto,
+        canal, tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
     ):
         self.id_pedido = str(uuid.uuid4())[:8]
         self.origen = origen
@@ -24,104 +14,63 @@ class Pedido:
         self.destino = destino
         self.destinatario = destinatario
         self.contacto = contacto
-        self.canal_origen = canal_origen
+        self.canal = canal
         self.tipo_entrega = tipo_entrega
         self.ventana_tiempo = ventana_tiempo
         self.tipo_carga = tipo_carga
         self.peso_estimado = peso_estimado
         self.estado = "Creado"
         self.fecha_creacion = datetime.now()
-        self.repartidor_asignado = None
-
-    def __str__(self):
-        return f"Pedido [{self.id_pedido}] | Canal: {self.canal_origen} | Estado: {self.estado}"
+        self.repartidor = None
 
     def validar(self):
         self.estado = "Validado"
 
-    def dejar_pendiente_asignacion(self):
+    def dejar_pendiente(self):
         self.estado = "Pendiente de asignación"
 
     def asignar(self, repartidor):
-        self.repartidor_asignado = repartidor
+        self.repartidor = repartidor
         self.estado = "Asignado"
 
-    def iniciar_despacho(self):
+    def salir_a_reparto(self):
         self.estado = "En ruta"
 
-    def marcar_entregado(self):
+    def entregar(self):
         self.estado = "Entregado"
 
+    def __str__(self):
+        return f"Pedido [{self.id_pedido}] | Canal: {self.canal} | Estado: {self.estado}"
 
-# Cada canal crea pedidos con su propia fábrica.
+
 class CreadorPedido(ABC):
     @abstractmethod
-    def crear_pedido(
-        self,
-        origen,
-        punto_origen,
-        destino,
-        destinatario,
-        contacto,
-        tipo_entrega,
-        ventana_tiempo,
-        tipo_carga,
-        peso_estimado,
+    def crear(
+        self, origen, punto_origen, destino, destinatario, contacto,
+        tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
     ):
         pass
 
 
-class CreadorWeb(CreadorPedido):
-    def crear_pedido(
-        self,
-        origen,
-        punto_origen,
-        destino,
-        destinatario,
-        contacto,
-        tipo_entrega,
-        ventana_tiempo,
-        tipo_carga,
-        peso_estimado,
+class CreadorMarketplace(CreadorPedido):
+    def crear(
+        self, origen, punto_origen, destino, destinatario, contacto,
+        tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
     ):
         return Pedido(
-            origen,
-            punto_origen,
-            destino,
-            destinatario,
-            contacto,
-            "Web",
-            tipo_entrega,
-            ventana_tiempo,
-            tipo_carga,
-            peso_estimado,
+            origen, punto_origen, destino, destinatario, contacto,
+            "Marketplace", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
         )
 
 
 class CreadorSucursal(CreadorPedido):
-    def crear_pedido(
-        self,
-        origen,
-        punto_origen,
-        destino,
-        destinatario,
-        contacto,
-        tipo_entrega,
-        ventana_tiempo,
-        tipo_carga,
-        peso_estimado,
+    def crear(
+        self, origen, punto_origen, destino, destinatario, contacto,
+        tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
     ):
         return Pedido(
-            origen,
-            punto_origen,
-            destino,
-            destinatario,
-            contacto,
-            "Sucursal",
-            tipo_entrega,
-            ventana_tiempo,
-            tipo_carga,
-            peso_estimado,
+            origen, punto_origen, destino, destinatario, contacto,
+            "Sucursal", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
         )
 
 
@@ -129,34 +78,18 @@ class RegistroPedidos:
     def __init__(self, creador):
         self.creador = creador
 
-    def registrar(
-        self,
-        origen,
-        punto_origen,
-        destino,
-        destinatario,
-        contacto,
-        tipo_entrega,
-        ventana_tiempo,
-        tipo_carga,
-        peso_estimado,
+    def ingresar(
+        self, origen, punto_origen, destino, destinatario, contacto,
+        tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
     ):
-        pedido = self.creador.crear_pedido(
-            origen,
-            punto_origen,
-            destino,
-            destinatario,
-            contacto,
-            tipo_entrega,
-            ventana_tiempo,
-            tipo_carga,
-            peso_estimado,
+        pedido = self.creador.crear(
+            origen, punto_origen, destino, destinatario, contacto,
+            tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
         )
-        print("Pedido registrado:", pedido)
+        print(f"-> Pedido registrado. Estado: {pedido.estado}")
         return pedido
 
 
-# Las reglas se separan para no dejar toda la validación en una sola clase.
 class ReglaValidacion(ABC):
     @abstractmethod
     def es_valida(self, pedido):
@@ -172,7 +105,7 @@ class ReglaOrigen(ReglaValidacion):
         return bool(pedido.origen.strip()) and bool(pedido.punto_origen.strip())
 
     def mensaje_error(self):
-        return "Falta información válida de origen."
+        return "Origen incompleto."
 
 
 class ReglaDestino(ReglaValidacion):
@@ -184,19 +117,18 @@ class ReglaDestino(ReglaValidacion):
         )
 
     def mensaje_error(self):
-        return "Falta información válida de destino o contacto."
+        return "Destino o contacto incompleto."
 
 
 class ReglaEntrega(ReglaValidacion):
     def es_valida(self, pedido):
-        tipos_validos = ["Normal", "Express", "Programada"]
-        return (
-            pedido.tipo_entrega in tipos_validos
-            and (pedido.tipo_entrega != "Programada" or bool(pedido.ventana_tiempo))
+        tipos = ["Normal", "Express", "Programada"]
+        return pedido.tipo_entrega in tipos and (
+            pedido.tipo_entrega != "Programada" or bool(pedido.ventana_tiempo)
         )
 
     def mensaje_error(self):
-        return "La información de entrega no cumple las condiciones mínimas."
+        return "Entrega inválida."
 
 
 class ReglaLogistica(ReglaValidacion):
@@ -204,7 +136,7 @@ class ReglaLogistica(ReglaValidacion):
         return bool(pedido.tipo_carga.strip()) and pedido.peso_estimado > 0
 
     def mensaje_error(self):
-        return "La información logística es inválida."
+        return "Datos logísticos inválidos."
 
 
 class ValidadorPedido:
@@ -213,7 +145,7 @@ class ValidadorPedido:
             ReglaOrigen(),
             ReglaDestino(),
             ReglaEntrega(),
-            ReglaLogistica(),
+            ReglaLogistica()
         ]
 
     def validar(self, pedido):
@@ -225,60 +157,57 @@ class ValidadorPedido:
                 return False, regla.mensaje_error()
 
         pedido.validar()
-        return True, "El pedido quedó validado."
+        return True, "Pedido validado correctamente."
 
 
-# Repartidor representa un recurso operativo disponible para despacho.
 class Repartidor:
-    def __init__(self, codigo, capacidad_maxima):
+    def __init__(self, codigo, capacidad):
         self.codigo = codigo
-        self.capacidad_maxima = capacidad_maxima
+        self.capacidad = capacidad
         self.carga_actual = 0
         self.disponible = True
 
     def puede_tomar(self, pedido):
-        return self.disponible and (self.carga_actual + pedido.peso_estimado) <= self.capacidad_maxima
+        return self.disponible and (self.carga_actual + pedido.peso_estimado) <= self.capacidad
 
-    def tomar_pedido(self, pedido):
+    def cargar(self, pedido):
         self.carga_actual += pedido.peso_estimado
 
     def __str__(self):
-        return f"Repartidor [{self.codigo}] | Carga {self.carga_actual}/{self.capacidad_maxima}"
+        return f"Repartidor [{self.codigo}] | Carga {self.carga_actual}/{self.capacidad}"
 
 
-# La estrategia permite cambiar la forma de elegir repartidor.
 class EstrategiaAsignacion(ABC):
     @abstractmethod
     def seleccionar(self, pedido, repartidores):
         pass
 
 
-class AsignacionPorCarga(EstrategiaAsignacion):
+class AsignacionMenorCarga(EstrategiaAsignacion):
     def seleccionar(self, pedido, repartidores):
-        candidatos = [r for r in repartidores if r.puede_tomar(pedido)]
-        return min(candidatos, key=lambda r: r.carga_actual) if candidatos else None
+        disponibles = [r for r in repartidores if r.puede_tomar(pedido)]
+        return min(disponibles, key=lambda r: r.carga_actual) if disponibles else None
 
 
 class GestorDespacho:
     def __init__(self, estrategia):
         self.estrategia = estrategia
 
-    def asignar_pedido(self, pedido, repartidores):
+    def asignar(self, pedido, repartidores):
         if pedido.estado != "Validado":
             return False, "El pedido debe estar validado antes de asignarse."
 
-        pedido.dejar_pendiente_asignacion()
+        pedido.dejar_pendiente()
         elegido = self.estrategia.seleccionar(pedido, repartidores)
 
-        if elegido is None:
-            return False, "No hay repartidores compatibles con el pedido."
+        if not elegido:
+            return False, "No hay capacidad disponible."
 
-        elegido.tomar_pedido(pedido)
+        elegido.cargar(pedido)
         pedido.asignar(elegido)
         return True, f"Pedido asignado a {elegido.codigo}."
 
 
-# Toda incidencia queda asociada a un pedido específico.
 class Incidencia:
     def __init__(self, pedido, motivo):
         self.id_caso = str(uuid.uuid4())[:8]
@@ -287,9 +216,12 @@ class Incidencia:
         self.estado = "Abierta"
         self.resolucion = None
 
-    def resolver(self, detalle):
+    def revisar(self):
+        self.estado = "En análisis"
+
+    def cerrar(self, detalle):
         if not detalle.strip():
-            raise ValueError("La incidencia necesita una resolución.")
+            raise ValueError("La incidencia requiere resolución.")
         self.resolucion = detalle
         self.estado = "Resuelta"
 
@@ -306,65 +238,70 @@ class FabricaIncidencias:
     def crear(tipo, pedido, motivo):
         if tipo.lower() == "reclamo":
             return ReclamoEntrega(pedido, motivo)
-        raise ValueError("Tipo de incidencia no reconocido.")
+        raise ValueError("Tipo de incidencia no soportado.")
 
 
-class SoporteIncidencias:
+class Soporte:
     def registrar_reclamo(self, pedido, motivo):
         if pedido.estado != "Entregado":
-            raise ValueError("El reclamo solo se registra sobre pedidos entregados.")
-        caso = FabricaIncidencias.crear("reclamo", pedido, motivo)
-        print("Caso de soporte creado:", caso)
-        return caso
+            raise ValueError("Solo se aceptan reclamos de pedidos entregados.")
+        return FabricaIncidencias.crear("reclamo", pedido, motivo)
 
 
-if __name__ == "__main__":
-    print("\n--- Simulación de operación logística ---\n")
+def ejecutar():
+    print("\n--- Simulación logística ---\n")
 
-    # Caso 1: ingreso de pedido desde un canal
-    registro_web = RegistroPedidos(CreadorWeb())
-    pedido_base = registro_web.registrar(
-        "Centro de Distribución Quilpué",
-        "CD-014",
+    print("[CU1] Ingreso de pedido")
+    registro = RegistroPedidos(CreadorMarketplace())
+    pedido = registro.ingresar(
+        "Centro Logístico Quilpué",
+        "QLP-014",
         "Av. Libertad 245, Viña del Mar",
         "Camila Rojas",
         "+56944556677",
         "Programada",
         "15:00 - 18:00",
         "Paquete frágil",
-        4.2,
+        4.2
     )
 
-    # Caso 2: validación del pedido
-    revisor = ValidadorPedido()
-    ok, mensaje = revisor.validar(pedido_base)
-    print("Resultado validación:", mensaje)
+    print("\n[CU2] Validación")
+    validador = ValidadorPedido()
+    ok, mensaje = validador.validar(pedido)
+    print("->", mensaje)
+    if not ok:
+        return
 
-    # Caso 3: asignación a un repartidor disponible
-    flota = [
-        Repartidor("VAL-01", 8.0),
-        Repartidor("VAL-02", 12.0),
-    ]
-    for repartidor in flota:
-        print("Repartidor disponible:", repartidor)
+    print("\n[CU3] Asignación")
+    flota = [Repartidor("VINA-01", 8.0), Repartidor("VINA-02", 12.0)]
+    for item in flota:
+        print("-> Disponible:", item)
 
-    despachador = GestorDespacho(AsignacionPorCarga())
-    ok, mensaje = despachador.asignar_pedido(pedido_base, flota)
-    print("Resultado asignación:", mensaje)
+    despacho = GestorDespacho(AsignacionMenorCarga())
+    ok, mensaje = despacho.asignar(pedido, flota)
+    print("->", mensaje)
+    if not ok:
+        return
 
-    if ok:
-        pedido_base.iniciar_despacho()
-        print("Estado actual del pedido:", pedido_base.estado)
-        pedido_base.marcar_entregado()
-        print("Estado final del pedido:", pedido_base.estado)
+    pedido.salir_a_reparto()
+    print("-> Estado actual:", pedido.estado)
+    pedido.entregar()
+    print("-> Estado final:", pedido.estado)
 
-    # Caso 4: registro y cierre de incidencia
-    soporte = SoporteIncidencias()
-    caso_soporte = soporte.registrar_reclamo(
-        pedido_base,
-        "Cliente reporta deterioro visible en el embalaje al momento de recibir."
+    print("\n[CU4] Incidencia")
+    soporte = Soporte()
+    caso = soporte.registrar_reclamo(
+        pedido,
+        "Cliente reporta daño visible en el embalaje."
     )
-    caso_soporte.resolver("Se revisó el caso y se aprobó compensación parcial.")
-    print("Caso de soporte cerrado:", caso_soporte)
+    print("-> Incidencia creada:", caso.estado)
+    caso.revisar()
+    print("-> Incidencia en revisión:", caso.estado)
+    caso.cerrar("Se revisó el caso y se aprobó compensación parcial.")
+    print("-> Incidencia cerrada:", caso.estado)
 
     print("\n--- Fin de la simulación ---\n")
+
+
+if __name__ == "__main__":
+    ejecutar()

@@ -45,25 +45,25 @@ class CreadorPedido(ABC):
         pass
 
 
-class CreadorMarketplace(CreadorPedido):
+class CreadorEcommerce(CreadorPedido):
     def crear(self, origen, punto_origen, destino, destinatario, contacto,
               tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado):
         return Pedido(
             origen, punto_origen, destino, destinatario, contacto,
-            "Marketplace", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
+            "E-commerce", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
         )
 
 
-class CreadorSucursal(CreadorPedido):
+class CreadorCanalPropio(CreadorPedido):
     def crear(self, origen, punto_origen, destino, destinatario, contacto,
               tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado):
         return Pedido(
             origen, punto_origen, destino, destinatario, contacto,
-            "Sucursal", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
+            "Canal Propio", tipo_entrega, ventana_tiempo, tipo_carga, peso_estimado
         )
 
 
-class RegistroPedidos:
+class ServicioRegistroPedidos:
     def __init__(self, creador):
         self.creador = creador
 
@@ -167,7 +167,7 @@ class AsignacionMenorCarga(EstrategiaAsignacion):
         return min(disponibles, key=lambda r: r.carga_actual) if disponibles else None
 
 
-class ServicioDespacho:
+class AsignacionService:
     def __init__(self, estrategia):
         self.estrategia = estrategia
 
@@ -203,23 +203,23 @@ class Incidencia:
         self.estado = "Resuelta"
 
 
-class ReclamoPostEntrega(Incidencia):
+class IncidenciaReclamo(Incidencia):
     pass
 
 
-class FabricaIncidencias:
+class IncidenciaFactory:
     @staticmethod
     def crear(tipo, pedido, motivo):
         if tipo.lower() == "reclamo":
-            return ReclamoPostEntrega(pedido, motivo)
+            return IncidenciaReclamo(pedido, motivo)
         raise ValueError("Tipo de incidencia no disponible.")
 
 
-class Soporte:
+class GestorIncidencias:
     def registrar_reclamo(self, pedido, motivo):
         if pedido.estado != "Entregado":
             raise ValueError("Solo se aceptan reclamos sobre pedidos entregados.")
-        return FabricaIncidencias.crear("reclamo", pedido, motivo)
+        return IncidenciaFactory.crear("reclamo", pedido, motivo)
 
 
 def ejecutar():
@@ -229,7 +229,7 @@ def ejecutar():
 
     print("\n[CAPTURA] Registro y validación del pedido...")
 
-    registro = RegistroPedidos(CreadorMarketplace())
+    registro = ServicioRegistroPedidos(CreadorEcommerce())
     pedido = registro.ingresar(
         "Centro Logístico Quilpué",
         "QLP-014",
@@ -259,7 +259,7 @@ def ejecutar():
     print(f"-> Repartidor {flota[0].codigo} disponible con capacidad {flota[0].capacidad} kg.")
     print(f"-> Repartidor {flota[1].codigo} disponible con capacidad {flota[1].capacidad} kg.")
 
-    despacho = ServicioDespacho(AsignacionMenorCarga())
+    despacho = AsignacionService(AsignacionMenorCarga())
     ok, mensaje = despacho.asignar(pedido, flota)
     if not ok:
         print(f"-> No fue posible asignar el pedido: {mensaje}")
@@ -276,7 +276,7 @@ def ejecutar():
 
     print("\n[SOPORTE] Gestión de incidencia posterior a la entrega...")
 
-    soporte = Soporte()
+    soporte = GestorIncidencias()
     caso = soporte.registrar_reclamo(
         pedido,
         "Cliente informa que recibió el paquete roto."
